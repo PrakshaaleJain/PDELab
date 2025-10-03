@@ -41,7 +41,7 @@ vector<double> thomas_solve(const vector<double>& a, const vector<double>& b,
     return x;
 }
 
-/* ----------------- Heat: Explicit (FTCS) ----------------- */
+/* ----------------- Heat: (FTCS) ----------------- */
 void heat_explicit(const PDEParams& p,
     function<double(double)> ic,
     function<double(double)> bcL,
@@ -82,7 +82,7 @@ void heat_explicit(const PDEParams& p,
     cout << "heat_explicit -> " << outfile << "\n";
 }
 
-/* ----------------- Heat: Implicit (Backward Euler) ----------------- */
+/* ----------------- Heat: (Backward Euler) ----------------- */
 void heat_implicit(const PDEParams& p,
     function<double(double)> ic,
     function<double(double)> bcL,
@@ -176,13 +176,10 @@ void heat_crank_nicolson(const PDEParams& p,
             int gi = i+1;
             rhs[i] = u[gi] + (r/2.0) * (u[gi+1] - 2.0*u[gi] + u[gi-1]);
         }
-        // move boundary contributions for u_new (LHS) to RHS:
-        // because LHS for first eq contains a[0]*u_new_0 = (-r/2)*u_new_0, move to RHS: rhs[0] -= a[0]*u_new_0
-        // since a[0] = -r/2, -a[0]*u_new0 = r/2 * u_new0
+
         rhs[0] += (r/2.0) * bcL(tnew);
         rhs[ninternal-1] += (r/2.0) * bcR(tnew);
-        // also for RHS we used u_old's ghost values already since u includes BCs at old time
-
+        
         vector<double> sol = thomas_solve(a,b,c,rhs);
         u_new[0] = bcL(tnew);
         for (int i = 0; i < ninternal; ++i) u_new[i+1] = sol[i];
@@ -196,7 +193,7 @@ void heat_crank_nicolson(const PDEParams& p,
 /* ----------------- Wave: Explicit ----------------- */
 void wave_explicit(const PDEParams& p,
     function<double(double)> ic,
-    function<double(double)> vel0,           // initial velocity v(x)
+    function<double(double)> vel0,           
     function<double(double)> bcL,
     function<double(double)> bcR,
     const string &outfile = "wave_explicit.csv")
@@ -209,7 +206,7 @@ void wave_explicit(const PDEParams& p,
     double dt;
     if (p.Nt > 0) { dt = p.T / p.Nt; }
     else if (p.dt > 0) { dt = p.dt; }
-    else { dt = 0.9 * dx / c; } // CFL: c*dt/dx <= 1
+    else { dt = 0.9 * dx / c; } 
 
     int Nt = max(1, (int)round(p.T / dt));
     dt = p.T / Nt;
@@ -217,7 +214,6 @@ void wave_explicit(const PDEParams& p,
     vector<double> u_prev(Nx), u_curr(Nx), u_next(Nx), x(Nx);
     for (int i = 0; i < Nx; ++i) { x[i] = i*dx; u_prev[i] = ic(x[i]); }
 
-    // first time-step (t = dt) using initial velocity
     double t0 = 0.0;
     double t1 = dt;
     for (int i = 1; i < Nx-1; ++i) {
@@ -246,7 +242,7 @@ void wave_explicit(const PDEParams& p,
 
 /* ----------------- Laplace / Poisson: Jacobi ----------------- */
 void laplace_jacobi(const PDEParams& p,
-    function<double(double)> f,  // right-hand side f(x) (for Laplace f=0)
+    function<double(double)> f,  
     function<double(double)> bcL,
     function<double(double)> bcR,
     const string &outfile = "laplace.csv",
@@ -260,7 +256,6 @@ void laplace_jacobi(const PDEParams& p,
     vector<double> u(Nx), u_new(Nx), x(Nx);
     for (int i = 0; i < Nx; ++i) { x[i] = i*dx; u[i] = 0.0; }
     u[0] = bcL(0.0); u[Nx-1] = bcR(0.0);
-    // initial linear guess between boundaries
     for (int i = 1; i < Nx-1; ++i) {
         u[i] = ( (Nx-1-i) * u[0] + i * u[Nx-1] ) / (Nx-1);
     }
@@ -288,16 +283,14 @@ int main() {
     p.T = 0.1;
     p.alpha = 0.01;
 
-    // Common IC and BC for demo: u(x,0) = sin(pi x), Dirichlet 0 both ends
+   
     auto ic = [&](double x){ return sin(M_PI * x); };
     auto zeroBC = [&](double t){ return 0.0; };
 
-    // Heat: explicit, implicit, CN
     heat_explicit(p, ic, zeroBC, zeroBC, "heat_explicit.csv");
     heat_implicit(p, ic, zeroBC, zeroBC, "heat_implicit.csv");
     heat_crank_nicolson(p, ic, zeroBC, zeroBC, "heat_cn.csv");
 
-    // Wave: initial velocity zero
     PDEParams pw = p;
     pw.T = 0.5;
     pw.c = 1.0;
